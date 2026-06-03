@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brain Tumor Detection</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <header class="app-header">
+      <div class="header-logo">
+        <i class="fa-solid fa-circle-nodes logo-icon"></i>
+        <div>
+          <h1>Brain Tumor Detection</h1>
+          <p class="subtitle">Deep learning classification of brain MRI scans</p>
+        </div>
+      </div>
+      <div class="header-badge">
+        <span class="badge-text">Assignment </span>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- Left Column: Upload and Parameter Settings -->
+      <section class="col-left">
+        <div class="panel card glass">
+          <div class="panel-header">
+            <i class="fa-solid fa-file-image"></i>
+            <h2>MRI Image Upload</h2>
+          </div>
+          
+          <div class="upload-container" id="dropZone">
+            <input id="imageInput" type="file" accept="image/*" style="display: none;">
+            <label for="imageInput" class="upload-label">
+              <div class="upload-icon-wrapper">
+                <i class="fa-solid fa-arrow-up-from-bracket upload-icon"></i>
+              </div>
+              <p class="upload-title">Choose file or drag here</p>
+              <p class="upload-desc">Supports JPEG, JPG, PNG format</p>
+              <span class="upload-btn">Browse files</span>
+            </label>
+          </div>
+
+          <!-- File Info & Image Preview -->
+          <div class="preview-panel" id="previewPanel" style="display: none;">
+            <div class="preview-header">
+              <h3><i class="fa-solid fa-image"></i> Image Preview</h3>
+              <span id="fileName" class="meta-badge">mri_scan.jpg</span>
+            </div>
+            <div class="mri-viewer-frame">
+              <img id="uploadedImg" src="" alt="Uploaded MRI Scan Preview">
+              <div class="scanner-overlay-status" id="scannerStatus" style="display: none;">
+                <div class="spinner"></div>
+                <p id="scannerMessage">Running Classification...</p>
+              </div>
+            </div>
+            <div class="preview-meta">
+              <span id="fileSize">Size: -- KB</span>
+              <span id="fileResolution">Dimensions: 224 x 224</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel card glass">
+          <div class="panel-header">
+            <i class="fa-solid fa-sliders"></i>
+            <h2>Configuration</h2>
+          </div>
+          
+          <div class="controls-form">
+            <div class="form-group">
+              <label for="modelSelect"><i class="fa-solid fa-gear"></i> Select Model</label>
+              <div class="select-wrapper">
+                <select id="modelSelect">
+                  <option value="resnet">ResNet18 (Transfer Learning)</option>
+                  <option value="cnn">Custom CNN</option>
+                </select>
+                <i class="fa-solid fa-chevron-down select-arrow"></i>
+              </div>
+            </div>
+
+            <div class="form-group-checkbox" id="ttaContainer">
+              <label class="checkbox-container">
+                <input type="checkbox" id="ttaCheckbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-label">
+                  <strong>Enable Test-Time Augmentation (TTA)</strong>
+                  <span class="checkbox-desc">Averages 8 augmented views during prediction (ResNet only).</span>
+                </span>
+              </label>
+            </div>
+
+            <button id="runBtn" class="action-btn active" disabled>
+              <i class="fa-solid fa-play"></i> Run Prediction
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Results -->
+      <section class="col-right">
+        <!-- Default State: Awaiting Upload -->
+        <div class="panel card glass empty-state" id="emptyResultsState">
+          <div class="empty-icon">
+            <i class="fa-solid fa-chart-pie"></i>
+          </div>
+          <h2>Classification Results</h2>
+          <p>Upload an MRI scan and run prediction to view the output class probabilities and model visualization maps.</p>
+        </div>
+
+        <!-- Loaded State: Diagnostic Results -->
+        <div class="panel card glass" id="resultsPanel" style="display: none;">
+          <div class="panel-header header-space">
+            <h2><i class="fa-solid fa-chart-column"></i> Model Prediction</h2>
+            <div class="status-badge" id="reportStatusBadge">COMPLETED</div>
+          </div>
+
+          <!-- Overall Callout Grid -->
+          <div class="assessment-grid">
+            <div class="assessment-card" id="diagnosisCard">
+              <span class="card-label">Predicted Class</span>
+              <h3 id="predText">GLIOMA</h3>
+              <p class="clinical-urgency" id="urgencyText">Classified as Glioma.</p>
+            </div>
+            
+            <div class="assessment-card conf-card">
+              <span class="card-label">Model Confidence</span>
+              <div class="confidence-flex">
+                <h3 id="confText">98.45%</h3>
+              </div>
+              <p class="clinical-urgency">Softmax probability value.</p>
+            </div>
+          </div>
+
+          <!-- Probability Bars -->
+          <div class="probability-section">
+            <h3><i class="fa-solid fa-list-ol"></i> Class Probabilities</h3>
+            <div id="probsList" class="custom-progress-bars">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Results Actions -->
+          <div class="results-actions">
+            <button id="downloadReportBtn" class="secondary-btn">
+              <i class="fa-solid fa-file-pdf"></i> Export Report (PDF)
+            </button>
+          </div>
+
+          <!-- Explainable AI: Grad-CAM Overlay Section -->
+          <div class="xai-section" id="gradCamSection">
+            <div class="xai-header">
+              <h3><i class="fa-solid fa-eye"></i> Saliency Map (Grad-CAM)</h3>
+              <span class="meta-badge-purple">ResNet18 layer4</span>
+            </div>
+            <p class="xai-desc">Highlights the image regions that contributed most to the model's prediction decision (red/yellow regions indicate higher weights).</p>
+            
+            <div class="xai-images-grid">
+              <div class="xai-image-wrapper">
+                <span>Original Image</span>
+                <img id="originalXaiImg" src="" alt="Input Scan">
+              </div>
+              <div class="xai-image-wrapper highlight">
+                <span>Saliency Map</span>
+                <img id="overlayImg" src="" alt="Grad-CAM Saliency Overlay">
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer-bar">
+      <p>© 2026 Brain Tumor Detection Tool</p>
+      <p class="credits">IIT Hyderabad Internship Project</p>
+    </footer>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
