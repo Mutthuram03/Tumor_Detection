@@ -1,0 +1,25 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Large Datasets
+dataset/
+*.zip
+*.tar.gz
+
+# Temporary generation folders
+temp/
+
+# Large Model Weights (Optional: remove this if your models are small enough and you want to host them)
+saved_models/*.pth
+saved_models/*.pt
+
+# OS generated files
+.DS_Store
+Thumbs.db
