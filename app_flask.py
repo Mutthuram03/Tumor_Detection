@@ -9,6 +9,7 @@ import numpy as np
 
 from models.resnet18_model import get_resnet18
 from models.custom_cnn import CustomCNN
+from models.vit_model import get_vit_b_16
 from gradcam import GradCAM
 
 app = Flask(__name__, template_folder='frontend/templates', static_folder='frontend/static')
@@ -28,21 +29,26 @@ def load_models():
 
     resnet = get_resnet18(num_classes=len(get_class_names())).to(device)
     cnn = CustomCNN(num_classes=len(get_class_names())).to(device)
+    vit = get_vit_b_16(num_classes=len(get_class_names())).to(device)
 
     resnet_path = './saved_models/best_resnet18.pth'
     cnn_path = './saved_models/best_custom_cnn.pth'
+    vit_path = './saved_models/best_vit.pth'
 
     if os.path.exists(resnet_path):
         resnet.load_state_dict(torch.load(resnet_path, map_location=device))
     if os.path.exists(cnn_path):
         cnn.load_state_dict(torch.load(cnn_path, map_location=device))
+    if os.path.exists(vit_path):
+        vit.load_state_dict(torch.load(vit_path, map_location=device))
 
     resnet.eval()
     cnn.eval()
+    vit.eval()
 
-    return resnet, cnn, device
+    return resnet, cnn, vit, device
 
-RESNET_MODEL, CNN_MODEL, DEVICE = load_models()
+RESNET_MODEL, CNN_MODEL, VIT_MODEL, DEVICE = load_models()
 CLASSES = get_class_names()
 
 # Transforms
@@ -67,6 +73,10 @@ def tensor_probs_to_dict(probs_tensor):
 
 
 def compute_gradcam_overlay(pil_img, model, model_choice):
+    if model_choice == 'vit':
+        # Bypassing Grad-CAM for ViT since standard Grad-CAM hooks assume 2D spatial dimensions (CNN features)
+        return None
+        
     # Prepare input
     input_tensor = transform(pil_img).unsqueeze(0).to(DEVICE)
     # target layer depending on selected model
@@ -95,6 +105,8 @@ def cv2_apply_colormap(cam):
 
 
 def to_base64(img_pil):
+    if img_pil is None:
+        return None
     buffered = io.BytesIO()
     img_pil.save(buffered, format='PNG')
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -114,7 +126,12 @@ def predict():
 
     pil_img = Image.open(file.stream).convert('RGB')
 
-    model = RESNET_MODEL if model_choice == 'resnet' else CNN_MODEL
+    if model_choice == 'resnet':
+        model = RESNET_MODEL
+    elif model_choice == 'vit':
+        model = VIT_MODEL
+    else:
+        model = CNN_MODEL
 
     # Inference
     with torch.no_grad():
@@ -139,7 +156,7 @@ def predict():
 
     probs_dict = tensor_probs_to_dict(probs)
 
-    # Grad-CAM overlay for both models
+    # Grad-CAM overlay for models (excluding ViT)
     overlay_b64 = None
     try:
         overlay_img = compute_gradcam_overlay(pil_img, model, model_choice)
